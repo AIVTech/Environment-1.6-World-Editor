@@ -1,0 +1,49 @@
+#version 420 core
+
+const int MAX_LIGHTS = 10;
+
+in vec2 pass_uvCoordinate;
+in vec3 surfaceNormal;
+in vec3 toLightVector[MAX_LIGHTS];
+
+out vec4 out_color;
+
+uniform sampler2D textureSampler;
+uniform vec3 lightColor[MAX_LIGHTS];
+uniform vec3 attenuation[MAX_LIGHTS];
+
+uniform float entityHighlighted;
+
+const vec3 highlightColor = vec3(1, 1, 1);
+
+void main(void)
+{
+	vec3 unitNormal = normalize(surfaceNormal);
+	
+	vec3 totalDiffuse = vec3(0.0);
+	
+	for (int i = 0; i < MAX_LIGHTS; i++) {
+		float distanceToLight = length(toLightVector[i]);
+		float attenuationFactor = attenuation[i].x + (attenuation[i].y * distanceToLight) + (attenuation[i].z * distanceToLight * distanceToLight);
+		vec3 unitLightVector = normalize(toLightVector[i]);
+		float lightDotProduct = dot(unitNormal, unitLightVector);
+		float brightness = max(lightDotProduct, 0.0);
+		totalDiffuse = totalDiffuse + (brightness * lightColor[i]) / attenuationFactor;
+	}
+	
+	totalDiffuse = max(totalDiffuse, 0.2);
+	
+	vec4 textureColor = texture(textureSampler, pass_uvCoordinate);
+	
+	if (textureColor.a < 0.5) 
+	{
+		discard;
+	}
+	
+	out_color = vec4(totalDiffuse, 1.0) * textureColor;
+	
+	if (entityHighlighted > 0.5) 
+	{
+		out_color = mix(out_color, vec4(highlightColor, 1.0), 0.34);
+	}
+}

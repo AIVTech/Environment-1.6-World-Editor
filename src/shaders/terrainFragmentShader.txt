@@ -1,0 +1,48 @@
+#version 400 core
+
+const int MAX_LIGHTS = 10;
+
+in vec2 pass_uvCoordinate;
+in vec3 surfaceNormal;
+in vec3 toLightVector[MAX_LIGHTS];
+
+out vec4 out_color;
+
+uniform vec3 lightColor[MAX_LIGHTS];
+uniform vec3 attenuation[MAX_LIGHTS];
+
+uniform sampler2D backgroundTexture;
+uniform sampler2D rTexture;
+uniform sampler2D gTexture;
+uniform sampler2D bTexture;
+uniform sampler2D blendMap;
+
+void main(void)
+{	
+	vec3 unitNormal = normalize(surfaceNormal);
+	
+	vec3 totalDiffuse = vec3(0.0);
+	
+	for (int i = 0; i < MAX_LIGHTS; i++) {
+		float distanceToLight = length(toLightVector[i]);
+		float attenuationFactor = attenuation[i].x + (attenuation[i].y * distanceToLight) + (attenuation[i].z * distanceToLight * distanceToLight);
+		vec3 unitLightVector = normalize(toLightVector[i]);
+		float lightDotProduct = dot(unitNormal, unitLightVector);
+		float brightness = max(lightDotProduct, 0.0);
+		totalDiffuse = totalDiffuse + (brightness * lightColor[i]) / attenuationFactor;
+	}
+	
+	totalDiffuse = max(totalDiffuse, 0.2);
+
+	vec4 blendMapColor = texture(blendMap, pass_uvCoordinate);
+	float backTextureAmount = 1 - (blendMapColor.r + blendMapColor.g + blendMapColor.b);
+	vec2 tiledCoords = pass_uvCoordinate * 260.0;
+	vec4 backgroundTextureColor = texture(backgroundTexture, tiledCoords) * backTextureAmount;
+	vec4 rTextureColor = texture(rTexture, tiledCoords) * blendMapColor.r;
+	vec4 gTextureColor = texture(gTexture, tiledCoords) * blendMapColor.g;
+	vec4 bTextureColor = texture(bTexture, tiledCoords) * blendMapColor.b;
+	
+	vec4 totalColor = backgroundTextureColor + rTextureColor + gTextureColor + bTextureColor;
+	
+	out_color = vec4(totalDiffuse, 1.0) * totalColor;
+}
